@@ -8,6 +8,8 @@
 // когда тут пояивлось уже 350 строк я понял, что лучше бы разделил..
 // я решил не делать ввод урона пользователем, а разные классы 
 
+// хотелось сделать больше разных классов, но времени нема
+
 // базовые классы
 class Unit;
 
@@ -22,7 +24,7 @@ class Dragon
 		~Dragon();
 
 		virtual void attack(Unit* unit) = 0;
-		virtual void receiveDamage(int damage) = 0;
+		void receiveDamage(int damage);
 
 		virtual void obility(Unit* unit) = 0;
 
@@ -39,6 +41,16 @@ Dragon::Dragon(int damage, int health)
 Dragon::~Dragon()
 {
 
+}
+
+void Dragon::receiveDamage(int daamge)
+{
+	this->health -= damage;
+
+	if (this->health < 0)
+	{
+		this->health = 0;
+	}
 }
 
 int Dragon::getDamage() // вообще 2 одинаковые функции в разных классах которые работают одинаково, не особо приятно
@@ -64,7 +76,7 @@ class Unit
 		bool inFire;
 
 		int timeFrozen;
-		bool frozen;
+		bool frozened;
 
 	public:
 		Unit(int damage, int health);
@@ -72,7 +84,7 @@ class Unit
 
 		virtual void attack(Dragon* dragon) = 0;
 		virtual void heal(int health);
-		virtual void receiveDamage(int damage) = 0;
+		virtual void receiveDamage(int damage) = 0; // будем переопределять потому что разные классы по разному получают урон
 
 		virtual void catchFire(int time, int fireDamage) = 0;
 		virtual void frozen(int time) = 0;
@@ -136,6 +148,8 @@ class SwordUnit : public Unit
 		void receiveDamage(int damage);
 
 		void catchFire(int time, int fireDamage);
+		void frozen(int time);
+
 		void update();
 };
 
@@ -168,6 +182,11 @@ void SwordUnit::catchFire(int time, int fireDamage)
 	this->fireDamage = fireDamage;
 }
 
+void SwordUnit::frozen(int time)
+{
+
+}
+
 void SwordUnit::update()
 {
 	if (this->inFire)
@@ -198,6 +217,8 @@ class Wizard : public Unit
 		void receiveDamage(int damage);
 
 		void catchFire(int time, int fireDamage);
+		void frozen(int time);
+
 		void update();
 
 		int getSelfRegen();
@@ -221,7 +242,10 @@ Wizard::~Wizard()
 
 void Wizard::attack(Dragon* dragon)
 {
-	dragon->receiveDamage(this->damage);
+	if (this->frozened)
+	{
+		dragon->receiveDamage(this->damage);
+	}
 }
 
 void Wizard::heal(int health)
@@ -249,6 +273,12 @@ void Wizard::catchFire(int time, int fireDamage) // в 2 раза меньше �
 	this->fireDamage = fireDamage / 2;
 }
 
+void Wizard::frozen(int time)
+{
+	this->timeFire = time / 2;
+	this->frozened = true;
+}
+
 void Wizard::update()
 {
 	if (this->inFire)
@@ -265,6 +295,16 @@ void Wizard::update()
 	if (this->timeRegen > 0)
 	{
 		this->timeRegen--;
+	}
+
+	if (this->frozened)
+	{
+		this->timeFrozen--;
+
+		if (this->timeFrozen == 0)
+		{
+			this->frozened = false;
+		}
 	}
 }
 
@@ -295,7 +335,6 @@ class DragonFire : public Dragon
 		~DragonFire();
 
 		void attack(Unit* unit);
-		void receiveDamage(int damage);
 
 		void obility(Unit* unit); // поджигает огнем
 };
@@ -317,16 +356,6 @@ void DragonFire::attack(Unit* unit)
 	unit->catchFire(2, 2);
 }
 
-void DragonFire::receiveDamage(int damage)
-{
-	this->health -= damage;
-
-	if (this->health < 0)
-	{
-		this->health = 0;
-	}
-}
-
 void DragonFire::obility(Unit* unit)
 {
 	unit->catchFire(2, this->fireDamage);
@@ -334,18 +363,20 @@ void DragonFire::obility(Unit* unit)
 
 class DragonIce : public Dragon
 {
+	private:
+		int timeFrozen;
+
 	public:
-		DragonIce(int damage, int health);
+		DragonIce(int damage, int health, int timeFrozen);
 		~DragonIce();
 
 		void attack(Unit* unit);
-		void receiveDamage(int damage);
 
 		void obility(Unit* unit); // замораживает
 };
 
-DragonIce::DragonIce(int damage, int health)
-	: Dragon(damage, health)
+DragonIce::DragonIce(int damage, int health, int timeFrozen)
+	: Dragon(damage, health), timeFrozen(timeFrozen)
 {
 
 }
@@ -354,6 +385,11 @@ void DragonIce::attack(Unit* unit)
 {
 	unit->receiveDamage(this->damage);
 
+}
+
+void DragonIce::obility(Unit* unit)
+{
+	unit->frozen(this->timeFrozen);
 }
 
 // Ввод данных пользователем
@@ -374,7 +410,7 @@ void printTable(std::vector<Units*>& units, std::string title, int attacked = -1
 
 	for (int i = 0; i < units.size(); i++)
 	{
-		std::cout << "\n" << i + 1 << ". Sword unit" << "[health = " << units[i]->getHealth() << "], [damage = " << units[i]->getDamage() << "]";
+		std::cout << "\n" << i + 1 << ". " << title << "[health = " << units[i]->getHealth() << "], [damage = " << units[i]->getDamage() << "]";
 
 		if (units[i]->getHealth() == 0)
 		{
@@ -450,7 +486,7 @@ int main()
 	std::vector<SwordUnit*> swordUnits;
 	std::vector<Wizard*> wizards;
 
-	int typeDragon = rand() % (1 - 0) - 0;
+	int typeDragon = rand() % (1 - 0 + 1) - 0;
 	Dragon* dragon;
 
 	switch (typeDragon)
@@ -458,6 +494,11 @@ int main()
 		case 0:
 			std::cout << "Type of dragon - fire!!\n\n";
 			dragon = new DragonFire(15, 1000, 5);
+			break;
+
+		case 1:
+			std::cout << "Type of dragon - ice!\n\n";
+			dragon = new DragonIce(10, 1500, 2);
 			break;
 	}
 
@@ -472,9 +513,9 @@ int main()
 		wizards.push_back(new Wizard(20, 10, 2));
 	}
 
-	printTable(swordUnits, "Sword units");
+	printTable(swordUnits, "Sword unit");
 	std::cout << "\n\n";
-	printTable(wizards, "Wizard units");
+	printTable(wizards, "Wizard unit");
 
 	std::cout << "\n\nPress enter to start..";
 	_getch();
@@ -522,7 +563,7 @@ int main()
 
 				while (true) 
 				{
-					std::cout << "Heal 1 - swords, 2 - self";
+					std::cout << "Heal 1 - swords, 2 - self ";
 					std::cin >> whoHeal;
 
 					if (wizards[0]->getTimeRegen() == 0)
